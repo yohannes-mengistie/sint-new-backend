@@ -1,0 +1,7 @@
+.env
+.env.*
+!.env.example
+service-account*.json
+bin/
+tmp/
+docker-compose.override.yml

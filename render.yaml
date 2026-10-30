@@ -1,0 +1,24 @@
+services:
+  - type: web
+    name: sint-new-api
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: sint-new-db
+          property: connectionString
+      - key: CLOUDINARY_URL
+        sync: false
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON_B64
+        sync: false
+      - key: CLOUDINARY_FOLDER
+        value: sint-new/photos
+
+databases:
+  - name: sint-new-db
+    plan: free
+    databaseName: sint_new
+    user: sint_new
