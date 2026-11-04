@@ -27,34 +27,6 @@ func (database *Postgres) List(ctx context.Context) ([]domain.Product, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	func (database *Postgres) ListStores(ctx context.Context) ([]domain.Store, error) {
-		rows, err := database.pool.Query(ctx, `
-			SELECT id, name, COALESCE(address, ''), COALESCE(latitude, 0),
-			       COALESCE(longitude, 0)
-			FROM stores
-			ORDER BY name ASC`)
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-
-		stores := make([]domain.Store, 0)
-		for rows.Next() {
-			var store domain.Store
-			if err := rows.Scan(
-				&store.ID,
-				&store.Name,
-				&store.Address,
-				&store.Latitude,
-				&store.Longitude,
-			); err != nil {
-				return nil, err
-			}
-			stores = append(stores, store)
-		}
-		return stores, rows.Err()
-	}
 	defer rows.Close()
 
 	products := make([]domain.Product, 0)
@@ -69,6 +41,34 @@ func (database *Postgres) List(ctx context.Context) ([]domain.Product, error) {
 		products = append(products, product)
 	}
 	return products, rows.Err()
+}
+
+func (database *Postgres) ListStores(ctx context.Context) ([]domain.Store, error) {
+	rows, err := database.pool.Query(ctx, `
+		SELECT id, name, COALESCE(address, ''), COALESCE(latitude, 0),
+		       COALESCE(longitude, 0)
+		FROM stores
+		ORDER BY name ASC`)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	stores := make([]domain.Store, 0)
+	for rows.Next() {
+		var store domain.Store
+		if err := rows.Scan(
+			&store.ID,
+			&store.Name,
+			&store.Address,
+			&store.Latitude,
+			&store.Longitude,
+		); err != nil {
+			return nil, err
+		}
+		stores = append(stores, store)
+	}
+	return stores, rows.Err()
 }
 
 func (database *Postgres) GetDetail(ctx context.Context, id int64) (domain.ProductDetail, error) {

@@ -16,7 +16,7 @@ type ProductRepository interface {
 }
 
 type StoreRepository interface {
-	List(ctx context.Context) ([]domain.Store, error)
+	ListStores(ctx context.Context) ([]domain.Store, error)
 }
 
 type FavoriteRepository interface {

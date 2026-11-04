@@ -22,7 +22,7 @@ type ListStores struct {
 }
 
 func (useCase ListStores) Execute(ctx context.Context) ([]domain.Store, error) {
-	return useCase.Stores.List(ctx)
+	return useCase.Stores.ListStores(ctx)
 }
 
 type GetProductDetail struct {
