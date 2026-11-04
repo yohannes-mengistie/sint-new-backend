@@ -5,18 +5,24 @@ import (
 	"errors"
 	"log"
 	"net/http"
+	"strconv"
 
 	"github.com/yohannes/sint-new-backend/internal/application"
 	"github.com/yohannes/sint-new-backend/internal/domain"
 )
 
 type Handler struct {
-	health       application.DatabaseHealth
-	auth         application.Authenticator
-	uploadPhoto  application.UploadPhoto
-	syncUser     application.SyncUser
-	listProducts application.ListProducts
-	submitPrice  application.SubmitPrice
+	health           application.DatabaseHealth
+	auth             application.Authenticator
+	uploadPhoto      application.UploadPhoto
+	syncUser         application.SyncUser
+	listProducts     application.ListProducts
+	listStores       application.ListStores
+	listFavorites    application.ListFavorites
+	addFavorite      application.AddFavorite
+	removeFavorite   application.RemoveFavorite
+	getProductDetail application.GetProductDetail
+	submitPrice      application.SubmitPrice
 }
 
 func NewHandler(
@@ -25,15 +31,25 @@ func NewHandler(
 	uploadPhoto application.UploadPhoto,
 	syncUser application.SyncUser,
 	listProducts application.ListProducts,
+	listStores application.ListStores,
+	listFavorites application.ListFavorites,
+	addFavorite application.AddFavorite,
+	removeFavorite application.RemoveFavorite,
+	getProductDetail application.GetProductDetail,
 	submitPrice application.SubmitPrice,
 ) http.Handler {
 	handler := &Handler{
-		health:       health,
-		auth:         auth,
-		uploadPhoto:  uploadPhoto,
-		syncUser:     syncUser,
-		listProducts: listProducts,
-		submitPrice:  submitPrice,
+		health:           health,
+		auth:             auth,
+		uploadPhoto:      uploadPhoto,
+		syncUser:         syncUser,
+		listProducts:     listProducts,
+		listStores:       listStores,
+		listFavorites:    listFavorites,
+		addFavorite:      addFavorite,
+		removeFavorite:   removeFavorite,
+		getProductDetail: getProductDetail,
+		submitPrice:      submitPrice,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", handler.healthCheck)
@@ -48,6 +64,26 @@ func NewHandler(
 	mux.Handle(
 		"GET /api/v1/products",
 		requireUser(auth, http.HandlerFunc(handler.products)),
+	)
+	mux.Handle(
+		"GET /api/v1/stores",
+		requireUser(auth, http.HandlerFunc(handler.stores)),
+	)
+	mux.Handle(
+		"GET /api/v1/favorites",
+		requireUser(auth, http.HandlerFunc(handler.favorites)),
+	)
+	mux.Handle(
+		"POST /api/v1/favorites/{id}",
+		requireUser(auth, http.HandlerFunc(handler.addFavoriteHandler)),
+	)
+	mux.Handle(
+		"DELETE /api/v1/favorites/{id}",
+		requireUser(auth, http.HandlerFunc(handler.removeFavoriteHandler)),
+	)
+	mux.Handle(
+		"GET /api/v1/products/{id}",
+		requireUser(auth, http.HandlerFunc(handler.productDetail)),
 	)
 	mux.Handle(
 		"POST /api/v1/price-updates",
@@ -122,6 +158,107 @@ func (handler *Handler) products(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 	writeJSON(writer, http.StatusOK, products)
+}
+
+func (handler *Handler) stores(writer http.ResponseWriter, request *http.Request) {
+	stores, err := handler.listStores.Execute(request.Context())
+	if err != nil {
+		log.Printf("list stores: %v", err)
+		writeJSON(writer, http.StatusInternalServerError, map[string]string{
+			"error": "could not load stores",
+		})
+		return
+	}
+	writeJSON(writer, http.StatusOK, stores)
+}
+
+func (handler *Handler) favorites(
+	writer http.ResponseWriter,
+	request *http.Request,
+) {
+	user, ok := userFromContext(request.Context())
+	if !ok {
+		writeJSON(writer, http.StatusInternalServerError, map[string]string{
+			"error": "authenticated user missing from context",
+		})
+		return
+	}
+	ids, err := handler.listFavorites.Execute(request.Context(), user)
+	if err != nil {
+		log.Printf("list favorites: %v", err)
+		writeJSON(writer, http.StatusInternalServerError, map[string]string{
+			"error": "could not load favorites",
+		})
+		return
+	}
+	writeJSON(writer, http.StatusOK, ids)
+}
+
+func (handler *Handler) addFavoriteHandler(
+	writer http.ResponseWriter,
+	request *http.Request,
+) {
+	handler.favoriteMutation(writer, request, true)
+}
+
+func (handler *Handler) removeFavoriteHandler(
+	writer http.ResponseWriter,
+	request *http.Request,
+) {
+	handler.favoriteMutation(writer, request, false)
+}
+
+func (handler *Handler) favoriteMutation(
+	writer http.ResponseWriter,
+	request *http.Request,
+	add bool,
+) {
+	user, ok := userFromContext(request.Context())
+	if !ok {
+		writeJSON(writer, http.StatusInternalServerError, map[string]string{
+			"error": "authenticated user missing from context",
+		})
+		return
+	}
+	id, err := strconv.ParseInt(request.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		writeJSON(writer, http.StatusBadRequest, map[string]string{
+			"error": "invalid product id",
+		})
+		return
+	}
+	if add {
+		err = handler.addFavorite.Execute(request.Context(), user, id)
+	} else {
+		err = handler.removeFavorite.Execute(request.Context(), user, id)
+	}
+	if err != nil {
+		log.Printf("favorite mutation: %v", err)
+		writeJSON(writer, http.StatusInternalServerError, map[string]string{
+			"error": "could not update favorites",
+		})
+		return
+	}
+	writer.WriteHeader(http.StatusNoContent)
+}
+
+func (handler *Handler) productDetail(writer http.ResponseWriter, request *http.Request) {
+	id, err := strconv.ParseInt(request.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		writeJSON(writer, http.StatusBadRequest, map[string]string{"error": "invalid product id"})
+		return
+	}
+	detail, err := handler.getProductDetail.Execute(request.Context(), id)
+	if errors.Is(err, application.ErrProductNotFound) {
+		writeJSON(writer, http.StatusNotFound, map[string]string{"error": "product not found"})
+		return
+	}
+	if err != nil {
+		log.Printf("get product detail: %v", err)
+		writeJSON(writer, http.StatusInternalServerError, map[string]string{"error": "could not load product detail"})
+		return
+	}
+	writeJSON(writer, http.StatusOK, detail)
 }
 
 func (handler *Handler) upload(writer http.ResponseWriter, request *http.Request) {

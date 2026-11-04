@@ -104,6 +104,10 @@ Authenticated API endpoints:
 ```text
 GET /api/v1/me
 GET /api/v1/products
+GET /api/v1/stores
+GET /api/v1/favorites
+POST /api/v1/favorites/{id}
+DELETE /api/v1/favorites/{id}
 POST /api/v1/price-updates
 POST /api/v1/uploads/photos
 ```

@@ -61,6 +61,11 @@ func main() {
 		application.UploadPhoto{Storage: storage},
 		application.SyncUser{Users: databaseClient},
 		application.ListProducts{Products: databaseClient},
+		application.ListStores{Stores: databaseClient},
+		application.ListFavorites{Favorites: databaseClient},
+		application.AddFavorite{Favorites: databaseClient},
+		application.RemoveFavorite{Favorites: databaseClient},
+		application.GetProductDetail{Products: databaseClient},
 		application.SubmitPrice{Updates: databaseClient},
 	)
 	server := &http.Server{
