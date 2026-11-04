@@ -83,5 +83,55 @@ func (database *Postgres) CreatePriceUpdate(
 	if err != nil {
 		return fmt.Errorf("create price update: %w", err)
 	}
+	_, err = tx.Exec(
+		ctx,
+		`INSERT INTO alerts (user_id, type, title, body)
+		 VALUES ($1, 'submission', 'Price update submitted',
+		         'Your price update is waiting for review.')`,
+		userID,
+	)
+	if err != nil {
+		return fmt.Errorf("create submission alert: %w", err)
+	}
 	return tx.Commit(ctx)
+}
+
+func (database *Postgres) ListPriceSubmissions(
+	ctx context.Context,
+	user domain.User,
+) ([]domain.PriceSubmission, error) {
+	rows, err := database.pool.Query(ctx, `
+		SELECT pu.id, p.name, s.name, pu.price, pu.status,
+		       COALESCE(pu.photo_url, ''), COALESCE(pu.notes, ''),
+		       pu.observed_at, pu.created_at
+		FROM price_updates pu
+		JOIN products p ON p.id = pu.product_id
+		JOIN stores s ON s.id = pu.store_id
+		JOIN users u ON u.id = pu.submitted_by
+		WHERE u.firebase_uid = $1
+		ORDER BY pu.created_at DESC`, user.FirebaseUID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	submissions := make([]domain.PriceSubmission, 0)
+	for rows.Next() {
+		var submission domain.PriceSubmission
+		if err := rows.Scan(
+			&submission.ID,
+			&submission.ProductName,
+			&submission.StoreName,
+			&submission.Price,
+			&submission.Status,
+			&submission.PhotoURL,
+			&submission.Notes,
+			&submission.ObservedAt,
+			&submission.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		submissions = append(submissions, submission)
+	}
+	return submissions, rows.Err()
 }

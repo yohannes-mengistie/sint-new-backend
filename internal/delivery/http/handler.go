@@ -23,6 +23,9 @@ type Handler struct {
 	removeFavorite   application.RemoveFavorite
 	getProductDetail application.GetProductDetail
 	submitPrice      application.SubmitPrice
+	listSubmissions application.ListPriceSubmissions
+	listAlerts      application.ListAlerts
+	deleteAlert     application.DeleteAlert
 }
 
 func NewHandler(
@@ -37,6 +40,9 @@ func NewHandler(
 	removeFavorite application.RemoveFavorite,
 	getProductDetail application.GetProductDetail,
 	submitPrice application.SubmitPrice,
+	listSubmissions application.ListPriceSubmissions,
+	listAlerts application.ListAlerts,
+	deleteAlert application.DeleteAlert,
 ) http.Handler {
 	handler := &Handler{
 		health:           health,
@@ -50,6 +56,9 @@ func NewHandler(
 		removeFavorite:   removeFavorite,
 		getProductDetail: getProductDetail,
 		submitPrice:      submitPrice,
+		listSubmissions: listSubmissions,
+		listAlerts:      listAlerts,
+		deleteAlert:     deleteAlert,
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", handler.healthCheck)
@@ -89,7 +98,91 @@ func NewHandler(
 		"POST /api/v1/price-updates",
 		requireUser(auth, http.HandlerFunc(handler.createPriceUpdate)),
 	)
+	mux.Handle(
+		"GET /api/v1/price-updates/mine",
+		requireUser(auth, http.HandlerFunc(handler.priceSubmissions)),
+	)
+	mux.Handle(
+		"GET /api/v1/alerts",
+		requireUser(auth, http.HandlerFunc(handler.alerts)),
+	)
+	mux.Handle(
+		"DELETE /api/v1/alerts/{id}",
+		requireUser(auth, http.HandlerFunc(handler.deleteAlertHandler)),
+	)
 	return withCORS(mux)
+}
+
+func (handler *Handler) alerts(
+	writer http.ResponseWriter,
+	request *http.Request,
+) {
+	user, ok := userFromContext(request.Context())
+	if !ok {
+		writeJSON(writer, http.StatusInternalServerError, map[string]string{
+			"error": "authenticated user missing from context",
+		})
+		return
+	}
+	alerts, err := handler.listAlerts.Execute(request.Context(), user)
+	if err != nil {
+		log.Printf("list alerts: %v", err)
+		writeJSON(writer, http.StatusInternalServerError, map[string]string{
+			"error": "could not load alerts",
+		})
+		return
+	}
+	writeJSON(writer, http.StatusOK, alerts)
+}
+
+func (handler *Handler) deleteAlertHandler(
+	writer http.ResponseWriter,
+	request *http.Request,
+) {
+	user, ok := userFromContext(request.Context())
+	if !ok {
+		writeJSON(writer, http.StatusInternalServerError, map[string]string{
+			"error": "authenticated user missing from context",
+		})
+		return
+	}
+	id, err := strconv.ParseInt(request.PathValue("id"), 10, 64)
+	if err != nil || id <= 0 {
+		writeJSON(writer, http.StatusBadRequest, map[string]string{
+			"error": "invalid alert id",
+		})
+		return
+	}
+	if err := handler.deleteAlert.Execute(request.Context(), user, id); err != nil {
+		log.Printf("delete alert: %v", err)
+		writeJSON(writer, http.StatusInternalServerError, map[string]string{
+			"error": "could not delete alert",
+		})
+		return
+	}
+	writer.WriteHeader(http.StatusNoContent)
+}
+
+func (handler *Handler) priceSubmissions(
+	writer http.ResponseWriter,
+	request *http.Request,
+) {
+	user, ok := userFromContext(request.Context())
+	if !ok {
+		writeJSON(writer, http.StatusInternalServerError, map[string]string{
+			"error": "authenticated user missing from context",
+		})
+		return
+	}
+	submissions, err := handler.listSubmissions.Execute(request.Context(), user)
+	if err != nil {
+		log.Printf("list price submissions: %v", err)
+		writeJSON(writer, http.StatusInternalServerError, map[string]string{
+			"error": "could not load price submissions",
+		})
+		return
+	}
+	writeJSON(writer, http.StatusOK, submissions)
 }
 
 func (handler *Handler) createPriceUpdate(writer http.ResponseWriter, request *http.Request) {

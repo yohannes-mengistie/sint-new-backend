@@ -84,3 +84,50 @@ func (database *Postgres) Remove(
 	)
 	return err
 }
+
+func (database *Postgres) ListAlerts(
+	ctx context.Context,
+	user domain.User,
+) ([]domain.Alert, error) {
+	rows, err := database.pool.Query(ctx, `
+		SELECT a.id, a.type, a.title, a.body, a.created_at, a.read_at
+		FROM alerts a
+		JOIN users u ON u.id = a.user_id
+		WHERE u.firebase_uid = $1
+		ORDER BY a.created_at DESC`, user.FirebaseUID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	alerts := make([]domain.Alert, 0)
+	for rows.Next() {
+		var alert domain.Alert
+		if err := rows.Scan(
+			&alert.ID,
+			&alert.Type,
+			&alert.Title,
+			&alert.Body,
+			&alert.CreatedAt,
+			&alert.ReadAt,
+		); err != nil {
+			return nil, err
+		}
+		alerts = append(alerts, alert)
+	}
+	return alerts, rows.Err()
+}
+
+func (database *Postgres) DeleteAlert(
+	ctx context.Context,
+	user domain.User,
+	alertID int64,
+) error {
+	_, err := database.pool.Exec(ctx, `
+		DELETE FROM alerts
+		WHERE id = $1
+		  AND user_id = (
+			SELECT id FROM users WHERE firebase_uid = $2
+		  )`, alertID, user.FirebaseUID)
+	return err
+}

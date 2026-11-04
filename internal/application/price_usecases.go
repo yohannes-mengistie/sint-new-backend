@@ -14,6 +14,17 @@ type SubmitPrice struct {
 	Updates PriceUpdateRepository
 }
 
+type ListPriceSubmissions struct {
+	Updates PriceUpdateRepository
+}
+
+func (useCase ListPriceSubmissions) Execute(
+	ctx context.Context,
+	user domain.User,
+) ([]domain.PriceSubmission, error) {
+	return useCase.Updates.ListPriceSubmissions(ctx, user)
+}
+
 func (useCase SubmitPrice) Execute(
 	ctx context.Context,
 	user domain.User,

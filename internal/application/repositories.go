@@ -27,4 +27,10 @@ type FavoriteRepository interface {
 
 type PriceUpdateRepository interface {
 	CreatePriceUpdate(ctx context.Context, user domain.User, update domain.PriceUpdate) error
+	ListPriceSubmissions(ctx context.Context, user domain.User) ([]domain.PriceSubmission, error)
+}
+
+type AlertRepository interface {
+	ListAlerts(ctx context.Context, user domain.User) ([]domain.Alert, error)
+	DeleteAlert(ctx context.Context, user domain.User, alertID int64) error
 }

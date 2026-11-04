@@ -21,6 +21,7 @@ var _ interface {
 	application.UserRepository
 	application.ProductRepository
 	application.PriceUpdateRepository
+	application.AlertRepository
 } = (*Postgres)(nil)
 
 func NewPostgres(ctx context.Context, connectionString string) (*Postgres, error) {

@@ -108,7 +108,10 @@ GET /api/v1/stores
 GET /api/v1/favorites
 POST /api/v1/favorites/{id}
 DELETE /api/v1/favorites/{id}
+GET /api/v1/price-updates/mine
 POST /api/v1/price-updates
+GET /api/v1/alerts
+DELETE /api/v1/alerts/{id}
 POST /api/v1/uploads/photos
 ```
 

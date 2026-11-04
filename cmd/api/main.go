@@ -67,6 +67,9 @@ func main() {
 		application.RemoveFavorite{Favorites: databaseClient},
 		application.GetProductDetail{Products: databaseClient},
 		application.SubmitPrice{Updates: databaseClient},
+		application.ListPriceSubmissions{Updates: databaseClient},
+		application.ListAlerts{Alerts: databaseClient},
+		application.DeleteAlert{Alerts: databaseClient},
 	)
 	server := &http.Server{
 		Addr:              cfg.HTTPAddr,
