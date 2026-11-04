@@ -8,7 +8,9 @@ import (
 	"github.com/yohannes/sint-new-backend/internal/domain"
 )
 
-var ErrInvalidPriceUpdate = errors.New("product, store, and a positive price are required")
+var ErrInvalidPriceUpdate = errors.New(
+	"product, store, and a positive price are required",
+)
 
 type SubmitPrice struct {
 	Updates PriceUpdateRepository
@@ -32,7 +34,7 @@ func (useCase SubmitPrice) Execute(
 ) error {
 	update.ProductName = strings.TrimSpace(update.ProductName)
 	update.StoreName = strings.TrimSpace(update.StoreName)
-	if update.ProductName == "" || update.StoreName == "" || update.Price <= 0 {
+	if update.ProductID <= 0 || update.StoreID <= 0 || update.Price <= 0 {
 		return ErrInvalidPriceUpdate
 	}
 	return useCase.Updates.CreatePriceUpdate(ctx, user, update)

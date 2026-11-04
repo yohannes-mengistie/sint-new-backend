@@ -12,6 +12,8 @@ type Product struct {
 }
 
 type PriceUpdate struct {
+	ProductID   int64   `json:"product_id"`
+	StoreID     int64   `json:"store_id"`
 	ProductName string  `json:"product_name"`
 	StoreName   string  `json:"store_name"`
 	Price       float64 `json:"price"`
